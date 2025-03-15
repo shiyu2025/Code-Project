@@ -1,0 +1,269 @@
+```html
+<!-- app.json 全局配置 -->
+{
+  "pages": [
+    "pages/index/index",
+    "pages/design/design",
+    "pages/mall/mall",
+    "pages/community/community",
+    "pages/game/game",
+    "pages/user/user"
+  ],
+  "window": {
+    "navigationBarTitleText": "宠趣宇宙",
+    "navigationBarBackgroundColor": "#B2F5EA",
+    "navigationBarTextStyle": "black"
+  },
+  "plugins": {
+    "threejsPlugin": {
+      "version": "1.0.0",
+      "provider": "wxXXXXXX"
+    }
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于AR寻宝功能"
+    }
+  }
+}
+
+<!-- pages/index/index.wxml 首页 -->
+<view class="container">
+  <!-- 轮播图 -->
+  <swiper autoplay interval="3000">
+    <swiper-item wx:for="{{banners}}" wx:key="index">
+      <image src="{{item.image}}" mode="aspectFill"/>
+    </swiper-item>
+  </swiper>
+
+  <!-- 功能入口 -->
+  <view class="nav-grid">
+    <navigator url="/pages/design/design" class="nav-item">
+      <image src="/images/icon_design.png"/>
+      <text>宠物换装</text>
+    </navigator>
+    <navigator url="/pages/game/game" class="nav-item">
+      <image src="/images/icon_game.png"/>
+      <text>勇者闯关</text>
+    </navigator>
+  </view>
+
+  <!-- 热榜 -->
+  <view class="hot-list">
+    <view wx:for="{{hotDesigns}}" wx:key="id" class="hot-item">
+      <image src="{{item.cover}}"/>
+      <text>{{item.title}}</text>
+    </view>
+  </view>
+</view>
+
+<!-- pages/design/design.wxml 设计页 -->
+<view class="design-container">
+  <!-- 设计画布 -->
+  <canvas id="designCanvas" type="2d"></canvas>
+  
+  <!-- 素材面板 -->
+  <scroll-view class="material-panel" scroll-x>
+    <view wx:for="{{materials}}" wx:key="id" 
+          class="material-item" bindtap="selectMaterial"
+          data-id="{{item.id}}">
+      <image src="{{item.thumb}}"/>
+    </view>
+  </scroll-view>
+
+  <!-- 商家推荐 -->
+  <view class="recommend-shop">
+    <text>推荐商品：{{currentRecommend}}</text>
+    <navigator url="/pages/mall/detail?id={{recommendId}}">去看看</navigator>
+  </view>
+</view>
+
+<!-- pages/design/design.js -->
+const fabric = require('../../libs/fabric.js');
+Page({
+  data: {
+    materials: [],
+    currentRecommend: ''
+  },
+
+  onReady() {
+    this.initCanvas();
+    this.loadMaterials();
+  },
+
+  initCanvas() {
+    this.canvas = new fabric.Canvas('designCanvas', {
+      width: 300,
+      height: 400
+    });
+  },
+
+  loadMaterials() {
+    wx.cloud.callFunction({
+      name: 'getMaterials',
+      success: res => {
+        this.setData({ materials: res.result.data });
+      }
+    });
+  },
+
+  selectMaterial(e) {
+    const id = e.currentTarget.dataset.id;
+    const material = this.data.materials.find(item => item.id === id);
+    
+    fabric.Image.fromURL(material.url, img => {
+      img.scale(0.5);
+      this.canvas.add(img);
+      this.canvas.renderAll();
+    });
+  }
+});
+
+<!-- 云函数getMaterials -->
+const cloud = require('wx-server-sdk');
+cloud.init();
+const db = cloud.database();
+
+exports.main = async () => {
+  return await db.collection('materials')
+    .where({ status: 1 })
+    .orderBy('createTime', 'desc')
+    .get();
+};
+
+<!-- pages/game/game.wxml 游戏页 -->
+<view class="game-container">
+  <ar-scene ar-key="XXXXXX" bind:ar-ready="onARReady">
+    <ar-marker marker-id="1">
+      <view class="treasure-box" bindtap="collectTreasure">
+        🎁
+      </view>
+    </ar-marker>
+  </ar-scene>
+
+  <view class="energy-bar">
+    <text>当前能量豆：{{energy}}</text>
+    <progress percent="{{energyPercent}}"/>
+  </view>
+</view>
+
+<!-- 数据库设计示例 -->
+// collections
+- users: 用户信息
+- designs: 设计作品
+- materials: 设计素材
+- shops: 商家信息
+- orders: 订单记录
+- suggestions: 用户建议
+
+<!-- 微信支付示例 -->
+async function payOrder(orderId) {
+  const res = await wx.cloud.callFunction({
+    name: 'createPayment',
+    data: { orderId }
+  });
+  
+  wx.requestPayment({
+    timeStamp: res.timeStamp,
+    nonceStr: res.nonceStr,
+    package: res.package,
+    signType: 'MD5',
+    paySign: res.paySign,
+    success: () => {
+      wx.showToast({ title: '支付成功' });
+    }
+  });
+}
+```
+
+### 代码说明及扩展建议：
+
+1. **3D渲染增强**：
+```javascript
+// 使用Three.js实现3D场景
+import * as THREE from '../../libs/three.min.js';
+
+function initThreeScene() {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, width/height, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer();
+  
+  // 添加3D模型
+  const loader = new THREE.GLTFLoader();
+  loader.load('model.glb', function(gltf) {
+    scene.add(gltf.scene);
+  });
+}
+```
+
+2. **AI图像处理**：
+```javascript
+// 腾讯云AI图像分割
+async function segmentPet(image) {
+  const res = await wx.cloud.callFunction({
+    name: 'aiSegment',
+    data: { image }
+  });
+  return res.result.mask;
+}
+```
+
+3. **实时排行榜**：
+```javascript
+// Redis缓存加速
+const redis = require('redis');
+const client = redis.createClient();
+
+async function updateRank(userId, score) {
+  await client.zadd('weekly_rank', score, userId);
+  return client.zrevrange('weekly_rank', 0, 9, 'WITHSCORES');
+}
+```
+
+4. **安全审核**：
+```javascript
+// 内容安全审核
+async function checkContentSafety(content) {
+  return await wx.cloud.callFunction({
+    name: 'msgSecCheck',
+    data: { content }
+  });
+}
+```
+
+### 实施建议：
+
+1. **分阶段开发**：
+- 第一阶段：完成核心换装系统+基础商城（4周）
+- 第二阶段：实现社区功能+小游戏（3周）
+- 第三阶段：完善AR功能+商家后台（3周）
+
+2. **测试要点**：
+```javascript
+// 单元测试示例
+test('素材加载逻辑', async () => {
+  const mockData = [{id:1, url:'test.jpg'}];
+  await mockCloudFunction('getMaterials', mockData);
+  expect(page.data.materials.length).toBe(1);
+});
+
+// 压力测试方案
+使用JMeter模拟：
+- 500并发用户换装操作
+- 1000次/秒的点赞请求
+```
+
+3. **性能优化**：
+```javascript
+// 图片懒加载
+<image lazy-load src="{{image}}"/>
+
+// 数据分页加载
+async function loadMore() {
+  const res = await db.collection('designs')
+    .skip(this.data.list.length)
+    .limit(10)
+    .get();
+}
+
+```
